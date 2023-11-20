@@ -1,8 +1,8 @@
-use clap::Parser;
 use anyhow::{bail, Result};
-use options::{Command, Options};
-use mdbook_files::FilesPreprocessor;
+use clap::Parser;
 use mdbook::preprocess::{CmdPreprocessor, Preprocessor};
+use mdbook_files::FilesPreprocessor;
+use options::{Command, Options};
 use std::io;
 
 mod options;
@@ -16,13 +16,13 @@ impl Options {
                 } else {
                     bail!("unknown renderer {}", command.renderer);
                 }
-            },
+            }
             None | Some(Command::Process) => {
                 let (ctx, book) = CmdPreprocessor::parse_input(io::stdin())?;
                 let output = preprocessor.run(&ctx, book)?;
                 serde_json::to_writer(io::stdout(), &output)?;
                 Ok(())
-            },
+            }
         }
     }
 }

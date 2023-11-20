@@ -9,4 +9,8 @@ edition = "2021"
 anyhow = "1.0.75"
 clap = { version = "4.4.8", features = ["derive"] }
 mdbook = "0.4.35"
+pulldown-cmark = "0.9.3"
+pulldown-cmark-to-cmark = "11.0.1"
+serde = { version = "1.0.192", features = ["derive"] }
 serde_json = "1.0.108"
+toml = "0.5.11"

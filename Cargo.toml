@@ -7,10 +7,13 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.75"
+camino = { version = "1.1.6", features = ["serde", "serde1"] }
 clap = { version = "4.4.8", features = ["derive"] }
+glob = "0.3.1"
 mdbook = "0.4.35"
 pulldown-cmark = "0.9.3"
 pulldown-cmark-to-cmark = "11.0.1"
 serde = { version = "1.0.192", features = ["derive"] }
 serde_json = "1.0.108"
 toml = "0.5.11"
+uuid = { version = "1.6.1", features = ["v4"] }

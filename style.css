@@ -1,0 +1,23 @@
+
+.mdbook-files {
+    display: flex;
+}
+
+.mdbook-files-left {
+    width: 100px;
+    min-width: 100px;
+    overflow: scroll;
+}
+
+.mdbook-files-right {
+    flex-grow: 1;
+    overflow: scroll;
+}
+
+.mdbook-file {
+    display: none;
+}
+
+.mdbook-file.visible {
+    display: block;
+}

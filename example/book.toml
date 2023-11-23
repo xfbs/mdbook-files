@@ -1,0 +1,13 @@
+[book]
+authors = ["Patrick Elsen"]
+language = "en"
+multilingual = false
+src = "src"
+title = "mdbook-files demo"
+
+[preprocessor.files]
+command = "cargo run --"
+prefix = ".."
+
+[output.html]
+additional-css = ["style.css"]

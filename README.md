@@ -19,7 +19,7 @@ this prefix.
 To use it, add something like this to your book:
 
     ```files
-    path = "subfolder"
+    paths = ["subfolder/**"]
     title = "Files in subfolder"
     ```
 

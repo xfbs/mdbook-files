@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use camino::Utf8PathBuf;
 use mdbook::{
     book::{Book, Chapter},
@@ -58,9 +58,11 @@ impl Config {
 
         for path in &data.files {
             let full_glob = self.prefix.join(&path);
-            let globs = glob::glob(full_glob.as_str())?;
+            let globs = glob::glob(full_glob.as_str()).context("Globbing files")?;
             for path in globs {
-                paths.insert(path?.try_into()?, Uuid::new_v4());
+                let path: Utf8PathBuf = path?.try_into()?;
+                let path = path.strip_prefix(&self.prefix)?;
+                paths.insert(path.into(), Uuid::new_v4());
             }
         }
 
@@ -85,7 +87,7 @@ impl Config {
         events.push(Event::Html(CowStr::Boxed(format!(r#"<ul>"#).into())));
         for (path, uuid) in &paths {
             events.push(Event::Html(CowStr::Boxed(
-                format!(r#"<li>{path}: {uuid}</li>"#).into(),
+                format!(r#"<li id="button-{uuid}">{path}</li>"#).into(),
             )));
         }
         events.push(Event::Html(CowStr::Boxed(format!(r#"</ul>"#).into())));
@@ -97,7 +99,7 @@ impl Config {
         )));
 
         for (path, uuid) in &paths {
-            let contents = std::fs::read_to_string(path)?;
+            let contents = std::fs::read_to_string(self.prefix.join(&path))?;
             let extension = path.extension().unwrap_or_else(|| "".into());
             let tag = Tag::CodeBlock(CodeBlockKind::Fenced(CowStr::Boxed(extension.into())));
 
@@ -114,6 +116,29 @@ impl Config {
 
         events.push(Event::Html(CowStr::Boxed(format!("</div>").into())));
         events.push(Event::Html(CowStr::Boxed(format!("</div>").into())));
+
+        let uuids: Vec<String> = paths.values().map(|uuid| uuid.to_string()).collect();
+        events.push(Event::Html(CowStr::Boxed(format!(r#"<script>
+            window.addEventListener("load", (event) => {{
+                const uuids = {uuids:?};
+                function set_visible(uuid) {{
+                    console.log(`Setting ${{uuid}} visible`);
+                    uuids.forEach((uuid) => {{
+                        document.getElementById(`button-${{uuid}}`).classList.remove("active");
+                        document.getElementById(`file-${{uuid}}`).classList.remove("visible");
+                    }});
+                    const button = document.getElementById(`button-${{uuid}}`).classList.add("active");
+                    const file = document.getElementById(`file-${{uuid}}`).classList.add("visible");
+                }}
+                function add_hook(uuid) {{
+                    console.log(`Adding hook for ${{uuid}}`);
+                    const button = document.getElementById(`button-${{uuid}}`);
+                    button.addEventListener("click", (event) => set_visible(uuid));
+                }}
+                uuids.forEach((uuid) => add_hook(uuid));
+                set_visible(uuids[0]);
+            }});
+        </script>"#).into())));
 
         Ok(events)
     }
@@ -134,7 +159,7 @@ impl Config {
                     if &*label == self.label() =>
                 {
                     let mapped = match parser.next() {
-                        Some(Event::Text(code)) => self.map_code(code)?,
+                        Some(Event::Text(code)) => self.map_code(code).context("Mapping code")?,
                         other => unreachable!("Got {other:?}"),
                     };
 

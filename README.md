@@ -1,16 +1,17 @@
 # mdbook-files
 
-A (work-in-progress) preprocessor for [mdBook][mdBook] which renders files from
-a directory as an interactive widget. The idea here is to make it easy to show
-project layouts concisely, without needing too much space to render every file
-sequentially.
+![docs.rs](https://img.shields.io/docsrs/mdbook-files)
+![Crates.io](https://img.shields.io/crates/l/mdbook-files)
+
+Preprocessor for [mdBook][mdBook] which renders files from a directory as an
+interactive widget, with syntax highlighting.
 
 ![Example of mdbook-files](example.png)
 
 ## Example
 
-You can check out the example by launching `mdbook` in the example directory
-in this repository.
+You can run the example by launching `mdbook` in the example directory in this
+repository.
 
 ```
 mdbook serve

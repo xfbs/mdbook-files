@@ -18,6 +18,12 @@ mdbook serve
 
 ## Usage
 
+Install `mdbook-files` using `cargo`:
+
+```
+cargo install mdbook-files
+```
+
 Put the following into your `book.toml`:
 
 ```toml
@@ -25,14 +31,23 @@ Put the following into your `book.toml`:
 prefix = "examples"
 ```
 
-It is mandatory to give a prefix. Every include path in the book must be within
-this prefix.
+The prefix is a path, relative to which files are to be included.  It is
+mandatory to give a prefix. Every include path in the book must be within this
+prefix.
+
+You will also need to add the `style.css` from this repository to your list of
+extra CSS files:
+
+```
+[output.html]
+additional-css = ["style.css"]
+```
 
 To use it, add something like this to your book:
 
     ```files
-    paths = ["subfolder/**"]
     title = "Files in subfolder"
+    paths = ["subfolder/**"]
     ```
 
 This will produce a widget with all files in `examples/subfolder`, with the given

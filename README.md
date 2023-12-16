@@ -1,8 +1,20 @@
 # mdbook-files
 
-A (work-in-progress) preprocessor for [mdBook][] which renders files from a directory
-as an interactive widget. The idea here is to make it easy to show project layouts
-concisely, without needing too much space to render every file sequentially.
+A (work-in-progress) preprocessor for [mdBook][mdBook] which renders files from
+a directory as an interactive widget. The idea here is to make it easy to show
+project layouts concisely, without needing too much space to render every file
+sequentially.
+
+![Example of mdbook-files](example.png)
+
+## Example
+
+You can check out the example by launching `mdbook` in the example directory
+in this repository.
+
+```
+mdbook serve
+```
 
 ## Usage
 

@@ -2,8 +2,9 @@
 name = "mdbook-files"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Patrick Elsen <pelsen@xfbs.net>"]
+license = "MIT"
+description = "Preprocessor for mdbook which renders files from a directory as an interactive widget"
 
 [dependencies]
 anyhow = "1.0.75"

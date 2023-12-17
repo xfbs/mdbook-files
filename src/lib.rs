@@ -151,8 +151,11 @@ impl Config {
         let mut parser = Parser::new(&chapter.content);
         let mut events = vec![];
 
+        eprintln!("{chapter:?}");
+
         loop {
             let next = parser.next();
+            eprintln!("{next:?}");
             match next {
                 None => break,
                 Some(Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(label))))
@@ -177,6 +180,8 @@ impl Config {
         let output = cmark(events.iter(), &mut buf).map(|_| buf).unwrap();
         let mut chapter = chapter;
         chapter.content = output;
+
+        chapter.sub_items = std::mem::take(&mut chapter.sub_items).into_iter().map(|item| self.map_book_item(item)).collect::<Result<_, _>>()?;
         Ok(chapter)
     }
 }

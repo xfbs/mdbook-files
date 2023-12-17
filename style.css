@@ -2,6 +2,7 @@
 .mdbook-files {
     display: flex;
     background-color: var(--sidebar-bg);
+    margin: 1em 0;
 }
 
 .mdbook-files ul {
@@ -39,8 +40,14 @@
 
 .mdbook-file pre {
     margin: 0;
+    height: 100%;
+}
+
+.mdbook-file pre code {
+    height: 100%;
 }
 
 .mdbook-file.visible {
     display: block;
+    height: 100%;
 }

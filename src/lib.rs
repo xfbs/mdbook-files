@@ -122,7 +122,6 @@ impl Config {
             window.addEventListener("load", (event) => {{
                 const uuids = {uuids:?};
                 function set_visible(uuid) {{
-                    console.log(`Setting ${{uuid}} visible`);
                     uuids.forEach((uuid) => {{
                         document.getElementById(`button-${{uuid}}`).classList.remove("active");
                         document.getElementById(`file-${{uuid}}`).classList.remove("visible");
@@ -131,7 +130,6 @@ impl Config {
                     const file = document.getElementById(`file-${{uuid}}`).classList.add("visible");
                 }}
                 function add_hook(uuid) {{
-                    console.log(`Adding hook for ${{uuid}}`);
                     const button = document.getElementById(`button-${{uuid}}`);
                     button.addEventListener("click", (event) => set_visible(uuid));
                 }}
@@ -151,11 +149,8 @@ impl Config {
         let mut parser = Parser::new(&chapter.content);
         let mut events = vec![];
 
-        eprintln!("{chapter:?}");
-
         loop {
             let next = parser.next();
-            eprintln!("{next:?}");
             match next {
                 None => break,
                 Some(Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(label))))

@@ -6,7 +6,7 @@ use mdbook::{
     preprocess::{Preprocessor, PreprocessorContext},
     BookItem,
 };
-use pulldown_cmark::{CodeBlockKind, CowStr, Event, HeadingLevel, Parser, Tag};
+use pulldown_cmark::{CodeBlockKind, CowStr, Event, HeadingLevel, Parser, Tag, Options};
 use pulldown_cmark_to_cmark::cmark;
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -146,7 +146,7 @@ impl Config {
     }
 
     fn map_chapter(&self, chapter: Chapter) -> Result<Chapter> {
-        let mut parser = Parser::new(&chapter.content);
+        let mut parser = Parser::new_ext(&chapter.content, Options::all());
         let mut events = vec![];
 
         loop {

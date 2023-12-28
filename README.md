@@ -1,7 +1,7 @@
 # mdbook-files
 
-![docs.rs](https://img.shields.io/docsrs/mdbook-files)
-![Crates.io](https://img.shields.io/crates/l/mdbook-files)
+[![docs.rs status](https://img.shields.io/docsrs/mdbook-files)](https://docs.rs/mdbook-files)
+[![Crates.io version](https://img.shields.io/crates/l/mdbook-files)](https://crates.io/crates/mdbook-files)
 
 Preprocessor for [mdBook][mdBook] which renders files from a directory as an
 interactive widget, with syntax highlighting.
@@ -39,17 +39,19 @@ prefix.
 You will also need to add the `style.css` from this repository to your list of
 extra CSS files:
 
-```
+```toml
 [output.html]
 additional-css = ["style.css"]
 ```
 
 To use it, add something like this to your book:
 
-    ```files
-    title = "Files in subfolder"
-    paths = ["subfolder/**"]
-    ```
+~~~markdown
+```files
+title = "Files in subfolder"
+paths = ["subfolder/**"]
+```
+~~~
 
 This will produce a widget with all files in `examples/subfolder`, with the given
 title. The content of this is a TOML document which contains configuration.

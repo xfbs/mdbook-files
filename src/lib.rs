@@ -156,7 +156,7 @@ impl Config {
     }
 
     fn map_markdown(&self, markdown: &str) -> Result<String> {
-        let mut parser = Parser::new_ext(&markdown, Options::all());
+        let mut parser = Parser::new_ext(markdown, Options::all());
         let mut events = vec![];
 
         loop {

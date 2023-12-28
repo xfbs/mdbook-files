@@ -1,7 +1,7 @@
 # mdbook-files
 
 [![docs.rs status](https://img.shields.io/docsrs/mdbook-files)](https://docs.rs/mdbook-files)
-[![Crates.io version](https://img.shields.io/crates/l/mdbook-files)](https://crates.io/crates/mdbook-files)
+[![Crates.io version](https://img.shields.io/crates/v/mdbook-files)](https://crates.io/crates/mdbook-files)
 
 Preprocessor for [mdBook][mdBook] which renders files from a directory as an
 interactive widget, with syntax highlighting.

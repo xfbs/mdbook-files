@@ -3,7 +3,7 @@ authors = ["Patrick Elsen"]
 language = "en"
 multilingual = false
 src = "src"
-title = "mdbook-files demo"
+title = "mdbook-files book"
 
 [preprocessor.files]
 command = "cargo run --"

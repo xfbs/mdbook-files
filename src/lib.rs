@@ -138,6 +138,7 @@ impl Config {
             }});
         </script>"#).into())));
 
+        events.push(Event::HardBreak);
         Ok(events)
     }
 
@@ -145,8 +146,17 @@ impl Config {
         "files"
     }
 
-    fn map_chapter(&self, chapter: Chapter) -> Result<Chapter> {
-        let mut parser = Parser::new_ext(&chapter.content, Options::all());
+    fn map_chapter(&self, mut chapter: Chapter) -> Result<Chapter> {
+        chapter.content = self.map_markdown(&chapter.content)?;
+        chapter.sub_items = std::mem::take(&mut chapter.sub_items)
+            .into_iter()
+            .map(|item| self.map_book_item(item))
+            .collect::<Result<_, _>>()?;
+        Ok(chapter)
+    }
+
+    fn map_markdown(&self, markdown: &str) -> Result<String> {
+        let mut parser = Parser::new_ext(&markdown, Options::all());
         let mut events = vec![];
 
         loop {
@@ -171,16 +181,9 @@ impl Config {
             }
         }
 
-        let mut buf = String::with_capacity(chapter.content.len());
-        let output = cmark(events.iter(), &mut buf).map(|_| buf).unwrap();
-        let mut chapter = chapter;
-        chapter.content = output;
-
-        chapter.sub_items = std::mem::take(&mut chapter.sub_items)
-            .into_iter()
-            .map(|item| self.map_book_item(item))
-            .collect::<Result<_, _>>()?;
-        Ok(chapter)
+        let mut buf = String::with_capacity(markdown.len());
+        let output = cmark(events.iter(), &mut buf).map(|_| buf)?;
+        Ok(output)
     }
 }
 

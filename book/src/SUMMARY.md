@@ -1,4 +1,5 @@
 # Summary
 
-- [Source](source.md)
+- [Setup](setup.md)
+- [Tests](source.md)
     - [Subchapter](subchapter.md)

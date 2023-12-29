@@ -18,6 +18,7 @@ use uuid::Uuid;
 
 /// Configuration for an invocation of files
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct Files {
     /// Path to files
     pub path: Utf8PathBuf,
@@ -28,7 +29,7 @@ pub struct Files {
     /// where the meaning of `!` is inverted: namely, `!` at the beginning of a glob will ignore a
     /// file. Without `!`, all matches of the glob provided are treated as whitelist matches.
     #[serde(default)]
-    pub ignore: Vec<String>,
+    pub files: Vec<String>,
 
     /// When specified, path to the file that is opened by default.
     #[serde(default)]
@@ -194,7 +195,7 @@ impl<'a> Instance<'a> {
         let mut paths: FilesMap = Default::default();
         let parent = self.parent();
         let mut overrides = OverrideBuilder::new(&parent);
-        for item in &self.data.ignore {
+        for item in &self.data.files {
             overrides.add(item)?;
         }
         let overrides = overrides.build()?;

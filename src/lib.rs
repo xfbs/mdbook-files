@@ -11,7 +11,7 @@ use mdbook::{
 use pulldown_cmark::{CodeBlockKind, CowStr, Event, Options, Parser, Tag};
 use pulldown_cmark_to_cmark::cmark;
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Write};
 use tera::Tera;
 use toml::value::Value;
 use uuid::Uuid;
@@ -112,6 +112,73 @@ pub struct Instance<'a> {
     uuid: Uuid,
 }
 
+#[derive(Clone, Debug)]
+pub enum TreeNode {
+    Directory(BTreeMap<String, TreeNode>),
+    File(Uuid),
+}
+
+impl Default for TreeNode {
+    fn default() -> Self {
+        TreeNode::Directory(Default::default())
+    }
+}
+
+impl TreeNode {
+    fn insert(&mut self, path: &[&str], uuid: Uuid) {
+        match self {
+            TreeNode::Directory(files) if path.len() == 1 => {
+                files.insert(path[0].into(), TreeNode::File(uuid));
+            }
+            TreeNode::Directory(files) => {
+                files
+                    .entry(path[0].into())
+                    .or_default()
+                    .insert(&path[1..], uuid);
+            }
+            TreeNode::File(_file) => panic!("entry exists"),
+        }
+    }
+
+    pub fn render(&self) -> Result<String> {
+        let mut output = String::new();
+        match self {
+            TreeNode::File(_) => bail!("root node cannot be file"),
+            TreeNode::Directory(files) => Self::render_files(&mut output, files)?,
+        }
+        Ok(output)
+    }
+
+    fn render_files(output: &mut dyn Write, files: &BTreeMap<String, TreeNode>) -> Result<()> {
+        write!(output, "<ul>")?;
+        for (path, node) in files {
+            node.render_inner(output, path)?;
+        }
+        write!(output, "</ul>")?;
+        Ok(())
+    }
+
+    fn render_inner(&self, output: &mut dyn Write, name: &str) -> Result<()> {
+        match self {
+            TreeNode::File(uuid) => {
+                write!(
+                    output,
+                    r#"<li id="button-{uuid}" class="mdbook-files-button">{name}</li>"#
+                )?;
+            }
+            TreeNode::Directory(files) => {
+                write!(
+                    output,
+                    r#"<li class="mdbook-files-folder"><span>{name}/</span>"#
+                )?;
+                Self::render_files(output, files)?;
+                write!(output, "</li>")?;
+            }
+        }
+        Ok(())
+    }
+}
+
 pub type FilesMap = BTreeMap<Utf8PathBuf, Uuid>;
 
 impl<'a> Instance<'a> {
@@ -164,12 +231,19 @@ impl<'a> Instance<'a> {
     fn left(&self, files: &FilesMap) -> Result<String> {
         let mut output = String::new();
         let parent = self.parent();
-        output.push_str(r#"<div class="mdbook-files-left"><ul>"#);
+        output.push_str(r#"<div class="mdbook-files-left">"#);
+
+        let mut root = TreeNode::default();
         for (path, uuid) in files.iter() {
             let path = path.strip_prefix(&parent)?;
-            output.push_str(&format!(r#"<li id="button-{uuid}">{path}</li>"#));
+            let path: Vec<_> = path.components().map(|c| c.as_str()).collect();
+            root.insert(&path[..], *uuid);
         }
-        output.push_str("</ul></div>");
+
+        let list = root.render()?;
+        info!("{list:?}");
+        output.push_str(&list);
+        output.push_str("</div>");
         Ok(output)
     }
 

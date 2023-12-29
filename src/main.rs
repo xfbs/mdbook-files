@@ -28,6 +28,7 @@ impl Options {
 }
 
 fn main() -> Result<()> {
+    env_logger::init();
     let options = options::Options::parse();
     let renderer = FilesPreprocessor;
     options.run(&renderer)

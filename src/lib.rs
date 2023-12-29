@@ -6,21 +6,89 @@ use mdbook::{
     preprocess::{Preprocessor, PreprocessorContext},
     BookItem,
 };
-use pulldown_cmark::{CodeBlockKind, CowStr, Event, HeadingLevel, Options, Parser, Tag};
+use pulldown_cmark::{CodeBlockKind, CowStr, Event, Options, Parser, Tag};
 use pulldown_cmark_to_cmark::cmark;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use toml::value::Value;
 use uuid::Uuid;
+use ignore::{overrides::OverrideBuilder, WalkBuilder};
+use log::*;
 
 /// Configuration for an invocation of files
 #[derive(Deserialize, Debug)]
 pub struct Files {
-    pub files: Vec<String>,
+    /// Path to files
+    pub path: Utf8PathBuf,
+
+    /// Add a glob to the set of overrides.
+    ///
+    /// Globs provided here have precisely the same semantics as a single line in a gitignore file,
+    /// where the meaning of `!` is inverted: namely, `!` at the beginning of a glob will ignore a
+    /// file. Without `!`, all matches of the glob provided are treated as whitelist matches.
     #[serde(default)]
-    pub title: Option<String>,
+    pub ignore: Vec<String>,
+
+    /// Process ignores case insensitively
     #[serde(default)]
-    pub exclude: Vec<String>,
+    pub ignore_case_insensitive: bool,
+
+    /// Do not cross file system boundaries.
+    ///
+    /// When this option is enabled, directory traversal will not descend into directories that are
+    /// on a different file system from the root path.
+    #[serde(default)]
+    pub same_file_system: bool,
+
+    /// Select the file type given by name.
+    #[serde(default)]
+    pub types: Vec<String>,
+
+    /// Enables ignoring hidden files.
+    #[serde(default)]
+    pub hidden: bool,
+
+    /// Whether to follow symbolic links or not.
+    #[serde(default)]
+    pub follow_links: bool,
+
+    /// Enables reading `.ignore` files.
+    ///
+    /// `.ignore` files have the same semantics as gitignore files and are supported by search
+    /// tools such as ripgrep and The Silver Searcher.
+    #[serde(default)]
+    pub dot_ignore: bool,
+
+    /// Enables reading a global `gitignore` file, whose path is specified in git’s `core.excludesFile`
+    /// config option.
+    #[serde(default)]
+    pub git_global: bool,
+
+    /// Enables reading `.git/info/exclude` files.
+    #[serde(default)]
+    pub git_exclude: bool,
+
+    /// Enables reading `.gitignore` files.
+    #[serde(default)]
+    pub git_ignore: bool,
+
+    /// Whether a git repository is required to apply git-related ignore rules (global rules,
+    /// .gitignore and local exclude rules).
+    #[serde(default)]
+    pub require_git: bool,
+
+    /// Enables reading ignore files from parent directories.
+    #[serde(default)]
+    pub git_ignore_parents: bool,
+
+    /// The maximum depth to recurse.
+    #[serde(default)]
+    pub max_depth: Option<usize>,
+
+    /// Whether to ignore files above the specified limit.
+    #[serde(default)]
+    pub max_filesize: Option<u64>,
+
     #[serde(default)]
     pub height: Option<String>,
 }
@@ -56,23 +124,41 @@ impl Config {
 
         let mut paths: BTreeMap<Utf8PathBuf, Uuid> = Default::default();
 
-        for path in &data.files {
-            let full_glob = self.prefix.join(path);
-            let globs = glob::glob(full_glob.as_str()).context("Globbing files")?;
-            for path in globs {
-                let path: Utf8PathBuf = path?.try_into()?;
-                let path = path.strip_prefix(&self.prefix)?;
-                paths.insert(path.into(), Uuid::new_v4());
+        let parent = self.prefix.join(&data.path);
+        let mut overrides = OverrideBuilder::new(&parent);
+        for item in &data.ignore {
+            overrides.add(item)?;
+        }
+        let overrides = overrides.build()?;
+        let mut walker = WalkBuilder::new(&parent);
+        walker
+            .standard_filters(false)
+            .ignore_case_insensitive(data.ignore_case_insensitive)
+            .same_file_system(data.same_file_system)
+            .require_git(data.require_git)
+            .hidden(data.hidden)
+            .ignore(data.dot_ignore)
+            .git_ignore(data.git_ignore)
+            .git_exclude(data.git_exclude)
+            .git_global(data.git_global)
+            .parents(data.git_ignore_parents)
+            .follow_links(data.follow_links)
+            .max_depth(data.max_depth)
+            .overrides(overrides)
+            .max_filesize(data.max_filesize);
+
+        let walker = walker.build();
+
+        for path in walker {
+            let path = path?;
+            if path.file_type().unwrap().is_file() {
+                paths.insert(path.path().to_path_buf().try_into()?, Uuid::new_v4());
             }
         }
 
-        let mut events = vec![];
+        info!("Found {} matching files", paths.len());
 
-        if let Some(title) = &data.title {
-            events.push(Event::Start(Tag::Heading(HeadingLevel::H5, None, vec![])));
-            events.push(Event::Text(CowStr::Boxed(title.to_string().into())));
-            events.push(Event::End(Tag::Heading(HeadingLevel::H5, None, vec![])));
-        }
+        let mut events = vec![];
 
         let height = data.height.as_deref().unwrap_or("300px");
         events.push(Event::Html(CowStr::Boxed(
@@ -86,6 +172,7 @@ impl Config {
 
         events.push(Event::Html(CowStr::Boxed(r#"<ul>"#.to_string().into())));
         for (path, uuid) in &paths {
+            let path = path.strip_prefix(&parent)?;
             events.push(Event::Html(CowStr::Boxed(
                 format!(r#"<li id="button-{uuid}">{path}</li>"#).into(),
             )));
@@ -99,7 +186,8 @@ impl Config {
         )));
 
         for (path, uuid) in &paths {
-            let contents = std::fs::read_to_string(self.prefix.join(path))?;
+            info!("Reading {path}");
+            let contents = std::fs::read_to_string(path)?;
             let extension = path.extension().unwrap_or("");
             let tag = Tag::CodeBlock(CodeBlockKind::Fenced(CowStr::Boxed(extension.into())));
 

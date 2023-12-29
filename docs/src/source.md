@@ -3,8 +3,10 @@
 Source code of `mdbook-files`:
 
 ```files
-title = "This is a title"
-files = ["src/*", "Cargo.toml"]
+path = "."
+hidden = true
+git_ignore = true
+ignore = ["!.github", "!*.png", "!docs"]
 ```
 
 This is some paragraph after the thing.

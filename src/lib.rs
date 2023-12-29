@@ -12,7 +12,7 @@ use pulldown_cmark::{CodeBlockKind, CowStr, Event, Options, Parser, Tag};
 use pulldown_cmark_to_cmark::cmark;
 use serde::Deserialize;
 use std::collections::BTreeMap;
-use tera::{Context, Tera};
+use tera::Tera;
 use toml::value::Value;
 use uuid::Uuid;
 
@@ -100,12 +100,142 @@ pub struct Config {
     pub prefix: Utf8PathBuf,
 }
 
-pub struct Instance<'a> {
+#[derive(Clone, Debug, Copy)]
+pub struct Context<'a> {
     prefix: &'a Utf8PathBuf,
     tera: &'a Tera,
 }
 
-impl<'b> Instance<'b> {
+pub struct Instance<'a> {
+    context: Context<'a>,
+    data: Files,
+    uuid: Uuid,
+}
+
+pub type FilesMap = BTreeMap<Utf8PathBuf, Uuid>;
+
+impl<'a> Instance<'a> {
+    fn parent(&self) -> Utf8PathBuf {
+        self.context.prefix.join(&self.data.path)
+    }
+
+    fn files(&self) -> Result<FilesMap> {
+        let mut paths: FilesMap = Default::default();
+        let parent = self.parent();
+        let mut overrides = OverrideBuilder::new(&parent);
+        for item in &self.data.ignore {
+            overrides.add(item)?;
+        }
+        let overrides = overrides.build()?;
+        let mut walker = WalkBuilder::new(&parent);
+        walker
+            .standard_filters(false)
+            .ignore_case_insensitive(self.data.ignore_case_insensitive)
+            .same_file_system(self.data.same_file_system)
+            .require_git(self.data.require_git)
+            .hidden(self.data.hidden)
+            .ignore(self.data.dot_ignore)
+            .git_ignore(self.data.git_ignore)
+            .git_exclude(self.data.git_exclude)
+            .git_global(self.data.git_global)
+            .parents(self.data.git_ignore_parents)
+            .follow_links(self.data.follow_links)
+            .max_depth(self.data.max_depth)
+            .overrides(overrides)
+            .max_filesize(self.data.max_filesize);
+
+        let walker = walker.build();
+
+        for path in walker {
+            let path = path?;
+            if path.file_type().unwrap().is_file() {
+                paths.insert(path.path().to_path_buf().try_into()?, Uuid::new_v4());
+            }
+        }
+
+        info!("Found {} matching files", paths.len());
+        if paths.is_empty() {
+            bail!("No files matched");
+        }
+
+        Ok(paths)
+    }
+
+    fn left(&self, files: &FilesMap) -> Result<String> {
+        let mut output = String::new();
+        let parent = self.parent();
+        output.push_str(r#"<div class="mdbook-files-left"><ul>"#);
+        for (path, uuid) in files.iter() {
+            let path = path.strip_prefix(&parent)?;
+            output.push_str(&format!(r#"<li id="button-{uuid}">{path}</li>"#));
+        }
+        output.push_str("</ul></div>");
+        Ok(output)
+    }
+
+    fn right(&self, files: &FilesMap) -> Result<Vec<Event<'static>>> {
+        let mut events = vec![];
+        events.push(Event::Html(CowStr::Boxed(
+            r#"<div class="mdbook-files-right">"#.to_string().into(),
+        )));
+
+        for (path, uuid) in files {
+            info!("Reading {path}");
+            let contents = std::fs::read_to_string(path)?;
+            let extension = path.extension().unwrap_or("");
+            let tag = Tag::CodeBlock(CodeBlockKind::Fenced(CowStr::Boxed(extension.into())));
+
+            events.push(Event::Html(CowStr::Boxed(
+                format!(r#"<div id="file-{uuid}" class="mdbook-file visible">"#).into(),
+            )));
+
+            events.push(Event::Start(tag.clone()));
+            events.push(Event::Text(CowStr::Boxed(contents.into())));
+            events.push(Event::End(tag));
+
+            events.push(Event::Html(CowStr::Boxed("</div>".to_string().into())));
+        }
+
+        events.push(Event::Html(CowStr::Boxed("</div>".to_string().into())));
+        Ok(events)
+    }
+
+    fn events(&self) -> Result<Vec<Event<'static>>> {
+        let paths = self.files()?;
+
+        let mut events = vec![];
+
+        let height = self.data.height.as_deref().unwrap_or("300px");
+        events.push(Event::Html(CowStr::Boxed(
+            format!(
+                r#"<div id="files-{}" class="mdbook-files" style="height: {height};">"#,
+                self.uuid
+            )
+            .into(),
+        )));
+
+        events.push(Event::Html(CowStr::Boxed(self.left(&paths)?.into())));
+        events.append(&mut self.right(&paths)?);
+        events.push(Event::Html(CowStr::Boxed("</div>".to_string().into())));
+
+        let uuids: Vec<String> = paths.values().map(|uuid| uuid.to_string()).collect();
+
+        let mut context = tera::Context::new();
+        context.insert("uuids", &uuids);
+        context.insert("visible", &uuids[0]);
+
+        let script = self.context.tera.render("script", &context)?;
+
+        events.push(Event::Html(CowStr::Boxed(
+            format!("<script>{script}</script>").into(),
+        )));
+
+        events.push(Event::HardBreak);
+        Ok(events)
+    }
+}
+
+impl<'b> Context<'b> {
     fn map(&self, book: Book) -> Result<Book> {
         let mut book = book;
         book.sections = std::mem::take(&mut book.sections)
@@ -124,110 +254,13 @@ impl<'b> Instance<'b> {
         Ok(result)
     }
 
-    fn map_code<'a>(&self, code: CowStr<'a>) -> Result<Vec<Event<'a>>> {
-        let data: Files = toml::from_str(&code).unwrap();
-        let uuid = Uuid::new_v4();
-
-        let mut paths: BTreeMap<Utf8PathBuf, Uuid> = Default::default();
-
-        let parent = self.prefix.join(&data.path);
-        let mut overrides = OverrideBuilder::new(&parent);
-        for item in &data.ignore {
-            overrides.add(item)?;
+    fn map_code(&self, code: CowStr<'_>) -> Result<Vec<Event<'static>>> {
+        Instance {
+            data: toml::from_str(&code)?,
+            uuid: Uuid::new_v4(),
+            context: *self,
         }
-        let overrides = overrides.build()?;
-        let mut walker = WalkBuilder::new(&parent);
-        walker
-            .standard_filters(false)
-            .ignore_case_insensitive(data.ignore_case_insensitive)
-            .same_file_system(data.same_file_system)
-            .require_git(data.require_git)
-            .hidden(data.hidden)
-            .ignore(data.dot_ignore)
-            .git_ignore(data.git_ignore)
-            .git_exclude(data.git_exclude)
-            .git_global(data.git_global)
-            .parents(data.git_ignore_parents)
-            .follow_links(data.follow_links)
-            .max_depth(data.max_depth)
-            .overrides(overrides)
-            .max_filesize(data.max_filesize);
-
-        let walker = walker.build();
-
-        for path in walker {
-            let path = path?;
-            if path.file_type().unwrap().is_file() {
-                paths.insert(path.path().to_path_buf().try_into()?, Uuid::new_v4());
-            }
-        }
-
-        info!("Found {} matching files", paths.len());
-        if paths.is_empty() {
-            bail!("No files matched");
-        }
-
-        let mut events = vec![];
-
-        let height = data.height.as_deref().unwrap_or("300px");
-        events.push(Event::Html(CowStr::Boxed(
-            format!(r#"<div id="files-{uuid}" class="mdbook-files" style="height: {height};">"#)
-                .into(),
-        )));
-
-        events.push(Event::Html(CowStr::Boxed(
-            r#"<div class="mdbook-files-left">"#.to_string().into(),
-        )));
-
-        events.push(Event::Html(CowStr::Boxed(r#"<ul>"#.to_string().into())));
-        for (path, uuid) in &paths {
-            let path = path.strip_prefix(&parent)?;
-            events.push(Event::Html(CowStr::Boxed(
-                format!(r#"<li id="button-{uuid}">{path}</li>"#).into(),
-            )));
-        }
-        events.push(Event::Html(CowStr::Boxed(r#"</ul>"#.to_string().into())));
-
-        events.push(Event::Html(CowStr::Boxed("</div>".to_string().into())));
-
-        events.push(Event::Html(CowStr::Boxed(
-            r#"<div class="mdbook-files-right">"#.to_string().into(),
-        )));
-
-        for (path, uuid) in &paths {
-            info!("Reading {path}");
-            let contents = std::fs::read_to_string(path)?;
-            let extension = path.extension().unwrap_or("");
-            let tag = Tag::CodeBlock(CodeBlockKind::Fenced(CowStr::Boxed(extension.into())));
-
-            events.push(Event::Html(CowStr::Boxed(
-                format!(r#"<div id="file-{uuid}" class="mdbook-file visible">"#).into(),
-            )));
-
-            events.push(Event::Start(tag.clone()));
-            events.push(Event::Text(CowStr::Boxed(contents.into())));
-            events.push(Event::End(tag));
-
-            events.push(Event::Html(CowStr::Boxed("</div>".to_string().into())));
-        }
-
-        events.push(Event::Html(CowStr::Boxed("</div>".to_string().into())));
-        events.push(Event::Html(CowStr::Boxed("</div>".to_string().into())));
-
-        let uuids: Vec<String> = paths.values().map(|uuid| uuid.to_string()).collect();
-
-        let mut context = Context::new();
-        context.insert("uuids", &uuids);
-        context.insert("visible", &uuids[0]);
-
-        let script = self.tera.render("script", &context)?;
-
-        events.push(Event::Html(CowStr::Boxed(
-            format!("<script>{script}</script>").into(),
-        )));
-
-        events.push(Event::HardBreak);
-        Ok(events)
+        .events()
     }
 
     fn label(&self) -> &str {
@@ -304,7 +337,7 @@ impl Preprocessor for FilesPreprocessor {
     fn run(&self, ctx: &PreprocessorContext, book: Book) -> MdbookResult<Book> {
         let config = ctx.config.get_preprocessor(self.name()).unwrap();
         let config: Config = Value::Table(config.clone()).try_into().unwrap();
-        let instance = Instance {
+        let instance = Context {
             prefix: &config.prefix,
             tera: &self.templates,
         };

@@ -6,7 +6,7 @@
 Preprocessor for [mdBook][mdBook] which renders files from a directory as an
 interactive widget, with syntax highlighting.
 
-![Example of mdbook-files](example.png)
+![Example of mdbook-files](docs/src/example.png)
 
 ## Example
 

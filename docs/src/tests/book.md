@@ -6,6 +6,7 @@ This is a subchapter.
 path = "docs"
 hidden = true
 git_ignore = true
+ignore = ["!**/*.png"]
 ```
 
 ## Subchapter

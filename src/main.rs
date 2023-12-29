@@ -23,6 +23,7 @@ impl Options {
                 serde_json::to_writer(io::stdout(), &output)?;
                 Ok(())
             }
+            Some(Command::Install(_command)) => Ok(()),
         }
     }
 }

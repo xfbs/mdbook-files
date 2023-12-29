@@ -1,5 +1,7 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use camino::Utf8PathBuf;
+use ignore::{overrides::OverrideBuilder, WalkBuilder};
+use log::*;
 use mdbook::{
     book::{Book, Chapter},
     errors::Result as MdbookResult,
@@ -12,8 +14,6 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 use toml::value::Value;
 use uuid::Uuid;
-use ignore::{overrides::OverrideBuilder, WalkBuilder};
-use log::*;
 
 /// Configuration for an invocation of files
 #[derive(Deserialize, Debug)]
@@ -157,6 +157,9 @@ impl Config {
         }
 
         info!("Found {} matching files", paths.len());
+        if paths.is_empty() {
+            bail!("No files matched");
+        }
 
         let mut events = vec![];
 

@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context as _, Result};
 use camino::Utf8PathBuf;
 use ignore::{overrides::OverrideBuilder, WalkBuilder};
 use log::*;
@@ -12,6 +12,7 @@ use pulldown_cmark::{CodeBlockKind, CowStr, Event, Options, Parser, Tag};
 use pulldown_cmark_to_cmark::cmark;
 use serde::Deserialize;
 use std::collections::BTreeMap;
+use tera::{Context, Tera};
 use toml::value::Value;
 use uuid::Uuid;
 
@@ -99,7 +100,12 @@ pub struct Config {
     pub prefix: Utf8PathBuf,
 }
 
-impl Config {
+pub struct Instance<'a> {
+    prefix: &'a Utf8PathBuf,
+    tera: &'a Tera,
+}
+
+impl<'b> Instance<'b> {
     fn map(&self, book: Book) -> Result<Book> {
         let mut book = book;
         book.sections = std::mem::take(&mut book.sections)
@@ -209,25 +215,16 @@ impl Config {
         events.push(Event::Html(CowStr::Boxed("</div>".to_string().into())));
 
         let uuids: Vec<String> = paths.values().map(|uuid| uuid.to_string()).collect();
-        events.push(Event::Html(CowStr::Boxed(format!(r#"<script>
-            window.addEventListener("load", (event) => {{
-                const uuids = {uuids:?};
-                function set_visible(uuid) {{
-                    uuids.forEach((uuid) => {{
-                        document.getElementById(`button-${{uuid}}`).classList.remove("active");
-                        document.getElementById(`file-${{uuid}}`).classList.remove("visible");
-                    }});
-                    const button = document.getElementById(`button-${{uuid}}`).classList.add("active");
-                    const file = document.getElementById(`file-${{uuid}}`).classList.add("visible");
-                }}
-                function add_hook(uuid) {{
-                    const button = document.getElementById(`button-${{uuid}}`);
-                    button.addEventListener("click", (event) => set_visible(uuid));
-                }}
-                uuids.forEach((uuid) => add_hook(uuid));
-                set_visible(uuids[0]);
-            }});
-        </script>"#).into())));
+
+        let mut context = Context::new();
+        context.insert("uuids", &uuids);
+        context.insert("visible", &uuids[0]);
+
+        let script = self.tera.render("script", &context)?;
+
+        events.push(Event::Html(CowStr::Boxed(
+            format!("<script>{script}</script>").into(),
+        )));
 
         events.push(Event::HardBreak);
         Ok(events)
@@ -278,7 +275,26 @@ impl Config {
     }
 }
 
-pub struct FilesPreprocessor;
+#[derive(Clone, Debug)]
+pub struct FilesPreprocessor {
+    templates: Tera,
+}
+
+impl Default for FilesPreprocessor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl FilesPreprocessor {
+    pub fn new() -> Self {
+        let mut templates = Tera::default();
+        templates
+            .add_raw_template("script", include_str!("script.js.tera"))
+            .unwrap();
+        Self { templates }
+    }
+}
 
 impl Preprocessor for FilesPreprocessor {
     fn name(&self) -> &str {
@@ -288,6 +304,10 @@ impl Preprocessor for FilesPreprocessor {
     fn run(&self, ctx: &PreprocessorContext, book: Book) -> MdbookResult<Book> {
         let config = ctx.config.get_preprocessor(self.name()).unwrap();
         let config: Config = Value::Table(config.clone()).try_into().unwrap();
-        config.map(book)
+        let instance = Instance {
+            prefix: &config.prefix,
+            tera: &self.templates,
+        };
+        instance.map(book)
     }
 }

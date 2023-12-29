@@ -1,5 +1,6 @@
 # Summary
 
 - [Setup](setup.md)
-- [Tests](source.md)
-    - [Subchapter](subchapter.md)
+- [Tests](tests.md)
+    - [Plugin Source](tests/plugin.md)
+    - [Book Source](tests/book.md)

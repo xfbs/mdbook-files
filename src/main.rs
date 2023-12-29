@@ -30,6 +30,6 @@ impl Options {
 fn main() -> Result<()> {
     env_logger::init();
     let options = options::Options::parse();
-    let renderer = FilesPreprocessor;
+    let renderer = FilesPreprocessor::new();
     options.run(&renderer)
 }

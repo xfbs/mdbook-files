@@ -30,6 +30,10 @@ pub struct Files {
     #[serde(default)]
     pub ignore: Vec<String>,
 
+    /// When specified, path to the file that is opened by default.
+    #[serde(default)]
+    pub default_file: Option<Utf8PathBuf>,
+
     /// Process ignores case insensitively
     #[serde(default)]
     pub ignore_case_insensitive: bool,
@@ -241,7 +245,6 @@ impl<'a> Instance<'a> {
         }
 
         let list = root.render()?;
-        info!("{list:?}");
         output.push_str(&list);
         output.push_str("</div>");
         Ok(output)
@@ -292,11 +295,15 @@ impl<'a> Instance<'a> {
         events.append(&mut self.right(&paths)?);
         events.push(Event::Html(CowStr::Boxed("</div>".to_string().into())));
 
-        let uuids: Vec<String> = paths.values().map(|uuid| uuid.to_string()).collect();
+        let uuids: Vec<Uuid> = paths.values().copied().collect();
+        let visible = match &self.data.default_file {
+            Some(file) => paths.get(&self.parent().join(file)).unwrap(),
+            None => &uuids[0],
+        };
 
         let mut context = tera::Context::new();
         context.insert("uuids", &uuids);
-        context.insert("visible", &uuids[0]);
+        context.insert("visible", visible);
 
         let script = self.context.tera.render("script", &context)?;
 

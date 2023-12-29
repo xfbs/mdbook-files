@@ -25,6 +25,9 @@ path = "path/to/folder"
 # file. Without `!`, all matches of the glob provided are treated as whitelist matches.
 ignore = ["*.png", "!*.md"]
 
+# When set, is the default file to show.
+default_file = "README.md"
+
 # Process ignores case insensitively
 ignore_case_insensitive = false
 

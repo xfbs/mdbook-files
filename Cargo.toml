@@ -22,4 +22,4 @@ serde = { version = "1.0.192", features = ["derive"] }
 serde_json = "1.0.108"
 tera = { version = "1.19.1", default-features = false, features = ["builtins"] }
 toml = "0.5.11"
-uuid = { version = "1.6.1", features = ["v4"] }
+uuid = { version = "1.6.1", features = ["v4", "serde"] }

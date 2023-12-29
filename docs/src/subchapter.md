@@ -3,8 +3,9 @@
 This is a subchapter.
 
 ```files
-title = "This is a title"
-files = ["docs/book.toml"]
+path = "docs"
+hidden = true
+git_ignore = true
 ```
 
 ## Subchapter

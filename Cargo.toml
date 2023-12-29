@@ -12,7 +12,9 @@ readme = "README.md"
 anyhow = "1.0.75"
 camino = { version = "1.1.6", features = ["serde", "serde1"] }
 clap = { version = "4.4.8", features = ["derive"] }
-glob = "0.3.1"
+env_logger = "0.10.1"
+ignore = "0.4.21"
+log = "0.4.20"
 mdbook = { version = "0.4.35", default-features = false }
 pulldown-cmark = "0.9.3"
 pulldown-cmark-to-cmark = "11.0.1"

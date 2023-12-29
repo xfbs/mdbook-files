@@ -18,12 +18,9 @@ This section explains the options available for every files instance.
 # path to folder to select files to show
 path = "path/to/folder"
 
-# Add a glob to the set of overrides.
-#
-# Globs provided here have precisely the same semantics as a single line in a gitignore file,
-# where the meaning of `!` is inverted: namely, `!` at the beginning of a glob will ignore a
-# file. Without `!`, all matches of the glob provided are treated as whitelist matches.
-ignore = ["*.png", "!*.md"]
+# Override list for files. Files added here are included even if they are ignored,
+# prefixing entries with an exclamation mark turns them into ignores.
+files = ["*.png", "!*.md"]
 
 # When set, is the default file to show.
 default_file = "README.md"

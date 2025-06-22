@@ -15,7 +15,7 @@ clap = { version = "4.4.8", features = ["derive"] }
 env_logger = "0.10.1"
 ignore = "0.4.21"
 log = "0.4.20"
-mdbook = { version = "0.4.35", default-features = false }
+mdbook = { version = "0.4.51", default-features = false }
 pulldown-cmark = "0.9.3"
 pulldown-cmark-to-cmark = "11.0.1"
 serde = { version = "1.0.192", features = ["derive"] }

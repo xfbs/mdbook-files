@@ -131,6 +131,7 @@
         };
 
         packages = {
+          mdbook-files = mdbook-files;
           default = mdbook-files;
         };
 

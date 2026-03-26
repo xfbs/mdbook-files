@@ -2,18 +2,16 @@ use anyhow::{bail, Context as _, Result};
 use camino::Utf8PathBuf;
 use ignore::{overrides::OverrideBuilder, WalkBuilder};
 use log::*;
-use mdbook::{
-    book::{Book, Chapter},
+use mdbook_preprocessor::{
+    book::{Book, BookItem, Chapter},
     errors::Result as MdbookResult,
-    preprocess::{Preprocessor, PreprocessorContext},
-    BookItem,
+    Preprocessor, PreprocessorContext,
 };
 use pulldown_cmark::{CodeBlockKind, CowStr, Event, Options, Parser, Tag};
 use pulldown_cmark_to_cmark::cmark;
 use serde::Deserialize;
 use std::{collections::BTreeMap, fmt::Write};
 use tera::Tera;
-use toml::value::Value;
 use uuid::Uuid;
 
 /// Configuration for an invocation of files
@@ -320,7 +318,7 @@ impl<'a> Instance<'a> {
 impl<'b> Context<'b> {
     fn map(&self, book: Book) -> Result<Book> {
         let mut book = book;
-        book.sections = std::mem::take(&mut book.sections)
+        book.items = std::mem::take(&mut book.items)
             .into_iter()
             .map(|section| self.map_book_item(section))
             .collect::<Result<_, _>>()?;
@@ -417,8 +415,10 @@ impl Preprocessor for FilesPreprocessor {
     }
 
     fn run(&self, ctx: &PreprocessorContext, book: Book) -> MdbookResult<Book> {
-        let config = ctx.config.get_preprocessor(self.name()).unwrap();
-        let config: Config = Value::Table(config.clone()).try_into().unwrap();
+        let config: Config = ctx
+            .config
+            .get(&format!("preprocessor.{}", self.name()))?
+            .unwrap();
         let instance = Context {
             prefix: &config.prefix,
             tera: &self.templates,
